@@ -1,19 +1,18 @@
 ﻿/*
  1.PC connect the wifi : Controller
-              password : 123456789
+			  password : 123456789
  2.Browser open: http://192.168.4.1/
 
- 3.click the on or off button
+ 3.Click the on or off button
 */
 
+
 #include <WiFi.h>
-#include <WiFiClient.h>
 #include <WiFiClientSecure.h>
 #include <FS.h>
 #include <WebServer.h>
-#include <ESPmDNS.h>
 #include <WebSocketsServer.h>
-#include <WiFiMulti.h>
+#include <ESPmDNS.h>
 
 #define USE_SERIAL Serial
 
@@ -22,8 +21,6 @@ static const char password[] = "123456789";
 MDNSResponder mdns;
 
 static void writeLED(bool);
-
-WiFiMulti wifiMulti;
 
 WebServer server(80);
 WebSocketsServer webSocket = WebSocketsServer(81);
@@ -171,6 +168,15 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
 </html>
 )rawliteral";
 
+// GPIO#0 is for Adafruit ESP8266 HUZZAH board. Your board LED might be on 13.
+const int LEDPIN = 2;
+// Current LED status
+bool LEDStatus;
+
+// Commands sent through Web Socket
+const char LEDON[] = "ledon";
+const char LEDOFF[] = "ledoff";
+
 void hexdump(const void* mem, uint32_t len, uint8_t cols = 16) {
 	const uint8_t* src = (const uint8_t*)mem;
 	USE_SERIAL.printf("\n[HEXDUMP] Address: 0x%08X len: 0x%X (%d)", (ptrdiff_t)src, len, len);
@@ -183,15 +189,6 @@ void hexdump(const void* mem, uint32_t len, uint8_t cols = 16) {
 	}
 	USE_SERIAL.printf("\n");
 }
-
-// GPIO#0 is for Adafruit ESP8266 HUZZAH board. Your board LED might be on 13.
-const int LEDPIN = 2;
-// Current LED status
-bool LEDStatus;
-
-// Commands sent through Web Socket
-const char LEDON[] = "ledon";
-const char LEDOFF[] = "ledoff";
 
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t length)
 {
@@ -267,10 +264,10 @@ static void writeLED(bool LEDon)
 	LEDStatus = LEDon;
 	// Note inverted logic for Adafruit HUZZAH board
 	if (LEDon) {
-		digitalWrite(LEDPIN, 1);
+		digitalWrite(LEDPIN, HIGH);
 	}
 	else {
-		digitalWrite(LEDPIN, 0);
+		digitalWrite(LEDPIN, LOW);
 	}
 }
 
