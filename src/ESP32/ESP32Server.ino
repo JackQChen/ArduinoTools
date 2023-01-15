@@ -28,106 +28,144 @@ WebSocketsServer webSocket = WebSocketsServer(81);
 static const char PROGMEM INDEX_HTML[] = R"rawliteral(
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no">
-        <meta http-equiv="X-UA-Compatible" content="ie=edge">
-        <title>Controller</title>
-        <script>
-            function disableTouch() {
-                var lastTouchEnd = 0;
-                document.addEventListener('touchstart', function(event) {
-                    if (event.touches.length > 1) {
-                        event.preventDefault();
-                    }
-                });
-                document.addEventListener('touchend', function(event) {
-                    var now = (new Date()).getTime();
-                    if (now - lastTouchEnd <= 300) {
-                        event.preventDefault();
-                    }
-                    lastTouchEnd = now;
-                }, false);
-                document.addEventListener('gesturestart', function(event) {
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Controller</title>
+    <script>
+        function disableTouch() {
+            var lastTouchEnd = 0;
+            document.addEventListener('touchstart', function (event) {
+                if (event.touches.length > 1) {
                     event.preventDefault();
-                });
-                document.addEventListener('dblclick', function(event) {
+                }
+            });
+            document.addEventListener('touchend', function (event) {
+                var now = (new Date()).getTime();
+                if (now - lastTouchEnd <= 100) {
                     event.preventDefault();
-                });
-                document.addEventListener("touchmove", function(e) {
-                    passive: false;
-                }, false);
-            }
-            var websocket;
-            var _reconnect;
-            function init() {
-                websocket = new WebSocket('ws://' + window.location.hostname + ':81/');
-                websocket.onopen = function(evt) {
-                    clearInterval(_reconnect);
-                    console.log("CONNECTED");
                 }
-                websocket.onclose = function(evt) {
-                    console.log("DISCONNECTED");
+                lastTouchEnd = now;
+            }, false);
+            document.addEventListener('gesturestart', function (event) {
+                event.preventDefault();
+            });
+            document.addEventListener('dblclick', function (event) {
+                event.preventDefault();
+            });
+            document.addEventListener("touchmove", function (e) {
+                passive: false;
+            }, false);
+        }
+        var websocket;
+        function init() {
+            websocket = new WebSocket('ws://' + window.location.hostname + ':81/');
+            websocket.binaryType = 'arraybuffer';
+            websocket.onopen = function (evt) {
+                console.log("CONNECTED");
+            }
+            websocket.onclose = function (evt) {
+                console.log("DISCONNECTED");
+            }
+            websocket.onmessage = function (evt) {
+                var buffer = new Uint8Array(evt.data);
+                switch (buffer[0]) {
+                    case 0: document.getElementById('chkSwitch').checked = buffer[1] == 1; break;
+                    case 1: document.getElementById('txtValue').value = buffer[1]; rangeValue(); break;
                 }
-                websocket.onmessage = function(evt) {
-                    document.getElementById('chkLight').checked = evt.data == "ledon";
-                }
-                websocket.onerror = function(evt) {
-                    console.log('ERROR:' + evt.data);
-                }
             }
-            function reconnect() {
-                _reconnect = setInterval(function() {
-                    if (websocket.readyState != WebSocket.OPEN)
-                        init();
-                }, 10000);
+            websocket.onerror = function (evt) {
+                console.log('ERROR:' + evt.data);
             }
-            function checkClick(e) {
-                websocket.send(e.checked ? "ledon" : "ledoff");
-            }
-        </script>
-        <style>
-            * {
-                -webkit-touch-callout: none;
-                -webkit-user-select: none;
-                -khtml-user-select: none;
-                -moz-user-select: none;
-                -ms-user-select: none;
-                user-select: none;
-            }
+        }
+        function status() {
+            setInterval(function () {
+                document.getElementById('labStatus').style.background = websocket.readyState != WebSocket.OPEN ? '#d0d0d0' : '#6ccb84';
+            }, 1);
+        }
+        function switchClick(e) {
+            var buffer = new Uint8Array(2);
+            buffer[0] = 0;
+            buffer[1] = e.checked ? 1 : 0;
+            websocket.send(buffer.buffer);
+        }
+        function rangeValue() {
+            var range = document.getElementById('txtValue');
+            var value = range.value;
+            document.getElementById('labRange').innerHTML = value;
+            var max = range.getAttribute("max");
+            var width = (87 / max * value) + "%";
+            document.querySelector('.range_width').style.width = width;
+            return value;
+        }
+        function rangeChange() {
+            var buffer = new Uint8Array(2);
+            buffer[0] = 1;
+            buffer[1] = rangeValue();
+            websocket.send(buffer.buffer);
+        }
+        function buttonClick() {
+            var buffer = new Uint8Array(2);
+            buffer[0] = 0;
+            buffer[1] = 1;
+            websocket.send(buffer.buffer);
+            setTimeout(() => {
+                buffer[1] = 0;
+                websocket.send(buffer.buffer);
+            }, 500);
+        }
+    </script>
+    <style>
+        * {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
 
-            html,body {
-                position: fixed;
-                width: 100%;
-                height: 100%;
-                margin: 0px;
-            }
+        html, body {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            margin: 0px;
+            background: #ecf0f1;
+            color: #34495e;
+            font-weight: 600;
+        }
 
-            input {
-                position: absolute;
-                left: -9999px;
-            }
+        #labStatus {
+            width: 20px;
+            height: 20px;
+            border-radius: 20px;
+        }
 
-            input:checked + .slider::before {
+        .switch {
+            display: none;
+        }
+
+            .switch:checked + .slider::before {
                 box-shadow: 0 0.08em 0.15em -0.1em rgba(0, 0, 0, 0.5) inset, 0 0.05em 0.08em -0.01em rgba(255, 255, 255, 0.7), 3em 0 0 0 rgba(68, 204, 102, 0.7) inset;
             }
 
-            input:checked + .slider::after {
+            .switch:checked + .slider::after {
                 left: 3em;
             }
 
-            .slider {
-                -webkit-tap-highlight-color: rgba(255,0,0,0);
-                position: relative;
-                display: block;
-                width: 5.5em;
-                height: 3em;
-                cursor: pointer;
-                border-radius: 1.5em;
-                transition: 350ms;
-                background: linear-gradient(rgba(0, 0, 0, 0.07), rgba(255, 255, 255, 0)), #ddd;
-                box-shadow: 0 0.07em 0.1em -0.1em rgba(0, 0, 0, 0.4) inset, 0 0.05em 0.08em -0.01em rgba(255, 255, 255, 0.7);
-            }
+        .slider {
+            -webkit-tap-highlight-color: rgba(255,0,0,0);
+            position: relative;
+            display: block;
+            width: 5.5em;
+            height: 3em;
+            cursor: pointer;
+            border-radius: 1.5em;
+            transition: 350ms;
+            background: linear-gradient(rgba(0, 0, 0, 0.07), rgba(255, 255, 255, 0)), #ddd;
+            box-shadow: 0 0.07em 0.1em -0.1em rgba(0, 0, 0, 0.4) inset, 0 0.05em 0.08em -0.01em rgba(255, 255, 255, 0.7);
+        }
 
             .slider::before {
                 position: absolute;
@@ -154,28 +192,99 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
                 background: linear-gradient(#f5f5f5 10%, #eeeeee);
                 box-shadow: 0 0.1em 0.15em -0.05em rgba(255, 255, 255, 0.9) inset, 0 0.2em 0.2em -0.12em rgba(0, 0, 0, 0.5);
             }
-        </style>
-    </head>
-    <body onload="disableTouch();init();reconnect();">
-        <div id="txtLog">LEDStatus</div>
-        <div style="position: fixed;top: 10%;width: 100%;display: flex;justify-content: center;align-items: center;">
-            <span style="float:left;margin:21px">开关
-        </span>
-            <input type="checkbox" id="chkLight" onclick="checkClick(this)">
-            <label style="float:left" class="slider" for="chkLight"></label>
+
+        input[type="range"] {
+            display: block;
+            -webkit-appearance: none;
+            background-color: #bdc3c7;
+            width: 100%;
+            height: 1rem;
+            border-radius: 5px;
+            margin: 0 auto;
+            outline: 0;
+        }
+
+            input[type="range"]::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                border: none;
+                border-radius: 50%;
+                transition: 250ms ease-in-out;
+                background: linear-gradient(#f5f5f5 10%, #eeeeee);
+                box-shadow: 0 0.1em 0.15em -0.05em rgba(255, 255, 255, 0.9) inset, 0 0.2em 0.2em -0.12em rgba(0, 0, 0, 0.5);
+                width: 2rem;
+                height: 2rem;
+                cursor: pointer;
+            }
+
+        .range {
+            position: relative;
+            width: 255px;
+        }
+
+        .range_width {
+            position: absolute;
+            top: -16px;
+            left: 0;
+            background: #6dcc85;
+            height: 1rem;
+            border-radius: 5px 0 0 5px;
+        }
+
+        button {
+            position: relative;
+            color: inherit;
+            background: white;
+            cursor: pointer;
+            outline: none;
+            border: 1px solid #e7eaec;
+            border-radius: 5px;
+            box-shadow: inset 0 0 0 #b3b3b3, 0 5px 0 0 #b3b3b3, 0 10px 5px #999999;
+            -webkit-tap-highlight-color: transparent;
+            width: 8rem;
+            height: 3rem;
+            font-size: 1rem;
+            font-weight: bold;
+        }
+
+            button:active {
+                top: 3px;
+                border: 1px solid #d2d2d2;
+                background-color: #e6e6e6;
+                box-shadow: inset 0 0 0 #b3b3b3, 0 2px 0 0 #b3b3b3, 0 5px 3px #999999;
+            }
+    </style>
+</head>
+<body onload="disableTouch(); init(); status();">
+    <div style="display: grid; grid-template-columns: 5rem auto;align-items: center; text-align: right; gap: 3rem 1rem; margin-top:1rem;">
+        <span>连接状态</span>
+        <div id="labStatus"></div>
+        <span>开关</span>
+        <div>
+            <input id="chkSwitch" type="checkbox" class="switch" onclick="switchClick(this)">
+            <label style="float:left" class="slider" for="chkSwitch"></label>
         </div>
-    </body>
+        <div id="labRange">0</div>
+        <div class="range">
+            <input id="txtValue" type="range" max="255" value="0" step="1">
+            <p class="range_width"></p>
+            <script>
+                document.getElementById('txtValue').addEventListener("input", rangeChange);
+            </script>
+        </div>
+        <button style="grid-column: 2;" type="button" onclick="buttonClick()">执行</button>
+    </div>
+</body>
 </html>
 )rawliteral";
 
 // GPIO#0 is for Adafruit ESP8266 HUZZAH board. Your board LED might be on 13.
-const int LEDPIN = 2;
+const int LEDPIN = 0;
 // Current LED status
 bool LEDStatus;
+uint8_t LEDValue;
 
 // Commands sent through Web Socket
-const char LEDON[] = "ledon";
-const char LEDOFF[] = "ledoff";
+uint8_t LEDSTATUS[] = { 0,0 }, LEDVALUE[] = { 1,0 };
 
 void hexdump(const void* mem, uint32_t len, uint8_t cols = 16) {
 	const uint8_t* src = (const uint8_t*)mem;
@@ -202,33 +311,36 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t length)
 		IPAddress ip = webSocket.remoteIP(num);
 		USE_SERIAL.printf("[%u] Connected from %d.%d.%d.%d url: %s\r\n", num, ip[0], ip[1], ip[2], ip[3], payload);
 		// Send the current LED status
-		if (LEDStatus) {
-			webSocket.sendTXT(num, LEDON, strlen(LEDON));
-		}
-		else {
-			webSocket.sendTXT(num, LEDOFF, strlen(LEDOFF));
-		}
+		LEDSTATUS[1] = LEDStatus ? 1 : 0;
+		webSocket.sendBIN(num, LEDSTATUS, sizeof(LEDSTATUS) / sizeof(LEDSTATUS[0]));
+		LEDVALUE[1] = LEDValue;
+		webSocket.sendBIN(num, LEDVALUE, sizeof(LEDVALUE) / sizeof(LEDVALUE[0]));
 	}
 	break;
-	case WStype_TEXT:
-		USE_SERIAL.printf("[%u] get Text: %s\r\n", num, payload);
+	//case WStype_TEXT:
+	//	USE_SERIAL.printf("[%u] get Text: %s\r\n", num, payload);
 
-		if (strcmp(LEDON, (const char*)payload) == 0) {
-			writeLED(true);
-		}
-		else if (strcmp(LEDOFF, (const char*)payload) == 0) {
-			writeLED(false);
-		}
-		else {
-			USE_SERIAL.println("Unknown command");
-		}
-		// send data to all connected clients
-		webSocket.broadcastTXT(payload, length);
-		break;
+	//	if (strcmp(LEDON, (const char*)payload) == 0) {
+	//		writeLED(true);
+	//	}
+	//	else if (strcmp(LEDOFF, (const char*)payload) == 0) {
+	//		writeLED(false);
+	//	}
+	//	else {
+	//		USE_SERIAL.println("Unknown command");
+	//	}
+	//	// send data to all connected clients
+	//	webSocket.broadcastTXT(payload, length);
+	//	break;
 	case WStype_BIN:
 		USE_SERIAL.printf("[%u] get binary length: %u\r\n", num, length);
 		hexdump(payload, length);
-
+		switch (payload[0])
+		{
+		case 0: writeLED(payload[1] == 1 ? true : false); break;
+		case 1: writeLEDValue(payload[1]); break;
+		default:USE_SERIAL.println("Unknown command"); break;
+		}
 		// echo data back to browser
 		webSocket.sendBIN(num, payload, length);
 		break;
@@ -262,13 +374,18 @@ void handleNotFound()
 static void writeLED(bool LEDon)
 {
 	LEDStatus = LEDon;
-	// Note inverted logic for Adafruit HUZZAH board
 	if (LEDon) {
 		digitalWrite(LEDPIN, HIGH);
 	}
 	else {
 		digitalWrite(LEDPIN, LOW);
 	}
+}
+
+static void writeLEDValue(uint8_t value)
+{
+	LEDValue = value;
+	analogWrite(LEDPIN, value);
 }
 
 void setup()
